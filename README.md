@@ -1,3 +1,5 @@
+GitHub at a Glance: Stay informed with a powerful, customizable dashboard for tracking repository activity and status updates in real time.
+
 # GitHub PR & Action Status Dashboard
 
 This project was generated from this prompt in VS Code using agent mode and Claude 3.7
