@@ -18,6 +18,7 @@ const repoItems = document.getElementById('repo-items');
 const repoControls = document.getElementById('repo-controls');
 const selectAllReposBtn = document.getElementById('select-all-repos');
 const selectNoneReposBtn = document.getElementById('select-none-repos');
+const selectionCount = document.getElementById('selection-count');
 const prContainer = document.getElementById('pr-container');
 const actionsContainer = document.getElementById('actions-container');
 const lastRefreshEl = document.getElementById('last-refresh');
@@ -123,6 +124,11 @@ function updateRepoDisplay() {
 
     // Show control buttons when there are multiple repositories
     repoControls.style.display = repositories.length > 1 ? 'flex' : 'none';
+
+    // Update selection count
+    if (repositories.length > 1) {
+        selectionCount.textContent = `${selectedRepositories.length}/${repositories.length} selected`;
+    }
 
     repoItems.innerHTML = repositories.map(repo => `
         <div class="repo-item">
@@ -353,7 +359,10 @@ function displayPullRequests(pullRequests) {
     );
 
     if (filteredPRs.length === 0) {
-        prContainer.innerHTML = '<div class="error">No pull requests found for selected repositories.</div>';
+        const message = selectedRepositories.length === 0 
+            ? '<div class="error">No repositories selected. Use the checkboxes above to select repositories to view.</div>'
+            : '<div class="error">No pull requests found for selected repositories.</div>';
+        prContainer.innerHTML = message;
         return;
     }
 
@@ -373,8 +382,8 @@ function displayPullRequests(pullRequests) {
         const createdDate = new Date(pr.created_at);
         const dateString = createdDate.toLocaleDateString();
 
-        // Repository label (only show if multiple repos)
-        const repoLabel = repositories.length > 1 && pr.repository ? 
+        // Repository label (only show if multiple repos are selected)
+        const repoLabel = selectedRepositories.length > 1 && pr.repository ? 
             `<div class="card-repo">${escapeHtml(pr.repository)}</div>` : '';
 
         card.innerHTML = `
@@ -406,7 +415,10 @@ function displayWorkflowRuns(workflowRuns) {
     );
 
     if (filteredRuns.length === 0) {
-        actionsContainer.innerHTML = '<div class="error">No workflow runs found for selected repositories.</div>';
+        const message = selectedRepositories.length === 0 
+            ? '<div class="error">No repositories selected. Use the checkboxes above to select repositories to view.</div>'
+            : '<div class="error">No workflow runs found for selected repositories.</div>';
+        actionsContainer.innerHTML = message;
         return;
     }
 
@@ -442,8 +454,8 @@ function displayWorkflowRuns(workflowRuns) {
             ? `<a href="${run.pull_requests[0].url.replace('api.github.com/repos', 'github.com')}" target="_blank">PR #${run.pull_requests[0].number}</a>`
             : 'No linked PR';
 
-        // Repository label (only show if multiple repos)
-        const repoLabel = repositories.length > 1 && run.repository ? 
+        // Repository label (only show if multiple repos are selected)
+        const repoLabel = selectedRepositories.length > 1 && run.repository ? 
             `<div class="card-repo">${escapeHtml(run.repository)}</div>` : '';
 
         card.innerHTML = `
