@@ -304,3 +304,51 @@ button:hover {
     font-size: 12px;
     margin-bottom: 3px;
 }
+
+/* Repository filtering styles */
+.repo-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.repo-list-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--primary-color);
+}
+
+.repo-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.repo-control-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    background-color: var(--light-gray);
+    color: var(--gray);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.repo-control-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.repo-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.repo-checkbox {
+    margin: 0;
+    cursor: pointer;
+}

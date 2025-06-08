@@ -28,7 +28,13 @@
                 <button id="refresh-now">Refresh Now</button>
             </div>
             <div class="repo-list" id="repo-list">
-                <h3>Repositories:</h3>
+                <div class="repo-list-header">
+                    <h3>Repositories:</h3>
+                    <div class="repo-controls" id="repo-controls" style="display: none;">
+                        <button type="button" id="select-all-repos" class="repo-control-btn">Select All</button>
+                        <button type="button" id="select-none-repos" class="repo-control-btn">Select None</button>
+                    </div>
+                </div>
                 <div id="repo-items" class="repo-items">
                     <div class="no-repos">No repositories added yet.</div>
                 </div>
