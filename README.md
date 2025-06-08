@@ -1,3 +1,7 @@
+<p align="center">
+    <img src="image.png" alt="alt text" width="400"/>
+</p>
+
 GitHub at a Glance: Stay informed with a powerful, customizable dashboard for tracking repository activity and status updates in real time.
 
 # GitHub PR & Action Status Dashboard
