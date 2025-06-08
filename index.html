@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub PR & Action Status Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>GitHub PR & Action Status Dashboard</h1>
+            <div class="controls">
+                <div class="form-group">
+                    <label for="repo-input">Repository (owner/repo):</label>
+                    <input type="text" id="repo-input" placeholder="e.g., octocat/Hello-World">
+                </div>
+                <div class="form-group">
+                    <label for="token-input">GitHub Token:</label>
+                    <input type="password" id="token-input" placeholder="GitHub Personal Access Token">
+                </div>
+                <button id="save-settings">Save Settings</button>
+                <button id="refresh-now">Refresh Now</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="panel">
+                <h2>Pull Requests</h2>
+                <div id="pr-container" class="container">
+                    <div class="loading">Loading data...</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Workflow Runs</h2>
+                <div id="actions-container" class="container">
+                    <div class="loading">Loading data...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div id="last-refresh">Last refreshed: Never</div>
+            <div id="refresh-status">Auto-refresh: On (15s)</div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
