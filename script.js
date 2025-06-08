@@ -4,6 +4,7 @@ const REFRESH_INTERVAL = 15000; // 15 seconds
 // State variables
 let refreshIntervalId = null;
 let repositories = []; // Changed from single repository to array
+let selectedRepositories = []; // Track which repositories are selected for viewing
 let token = '';
 
 // DOM Elements
@@ -14,6 +15,10 @@ const saveSettingsBtn = document.getElementById('save-settings');
 const refreshNowBtn = document.getElementById('refresh-now');
 const repoList = document.getElementById('repo-list');
 const repoItems = document.getElementById('repo-items');
+const repoControls = document.getElementById('repo-controls');
+const selectAllReposBtn = document.getElementById('select-all-repos');
+const selectNoneReposBtn = document.getElementById('select-none-repos');
+const selectionCount = document.getElementById('selection-count');
 const prContainer = document.getElementById('pr-container');
 const actionsContainer = document.getElementById('actions-container');
 const lastRefreshEl = document.getElementById('last-refresh');
@@ -30,6 +35,8 @@ repoInput.addEventListener('keypress', (e) => {
 });
 saveSettingsBtn.addEventListener('click', saveSettings);
 refreshNowBtn.addEventListener('click', refreshData);
+selectAllReposBtn.addEventListener('click', selectAllRepositories);
+selectNoneReposBtn.addEventListener('click', selectNoneRepositories);
 
 // Functions
 function initialize() {
@@ -50,6 +57,20 @@ function initialize() {
     }
     
     if (savedToken) tokenInput.value = savedToken;
+
+    // Initialize selected repositories - default to all if not saved
+    const savedSelectedRepos = localStorage.getItem('github-dashboard-selected-repos');
+    if (savedSelectedRepos) {
+        try {
+            selectedRepositories = JSON.parse(savedSelectedRepos);
+            // Ensure selected repos are still in the repositories list
+            selectedRepositories = selectedRepositories.filter(repo => repositories.includes(repo));
+        } catch (e) {
+            selectedRepositories = [...repositories]; // Default to all selected
+        }
+    } else {
+        selectedRepositories = [...repositories]; // Default to all selected
+    }
 
     updateRepoDisplay();
 
@@ -81,6 +102,7 @@ function addRepository() {
     }
 
     repositories.push(repo);
+    selectedRepositories.push(repo); // Auto-select new repositories
     repoInput.value = '';
     updateRepoDisplay();
     showNotification('Repository added!', 'success');
@@ -88,6 +110,7 @@ function addRepository() {
 
 function removeRepository(repo) {
     repositories = repositories.filter(r => r !== repo);
+    selectedRepositories = selectedRepositories.filter(r => r !== repo);
     updateRepoDisplay();
     showNotification('Repository removed!', 'success');
 }
@@ -95,12 +118,25 @@ function removeRepository(repo) {
 function updateRepoDisplay() {
     if (repositories.length === 0) {
         repoItems.innerHTML = '<div class="no-repos">No repositories added yet.</div>';
+        repoControls.style.display = 'none';
         return;
+    }
+
+    // Show control buttons when there are multiple repositories
+    repoControls.style.display = repositories.length > 1 ? 'flex' : 'none';
+
+    // Update selection count
+    if (repositories.length > 1) {
+        selectionCount.textContent = `${selectedRepositories.length}/${repositories.length} selected`;
     }
 
     repoItems.innerHTML = repositories.map(repo => `
         <div class="repo-item">
-            <span class="repo-name">${escapeHtml(repo)}</span>
+            <label class="repo-checkbox-label">
+                <input type="checkbox" class="repo-checkbox" data-repo="${escapeHtml(repo)}" 
+                       ${selectedRepositories.includes(repo) ? 'checked' : ''}>
+                <span class="repo-name">${escapeHtml(repo)}</span>
+            </label>
             <button type="button" class="remove-repo" data-repo="${escapeHtml(repo)}" title="Remove repository">×</button>
         </div>
     `).join('');
@@ -111,6 +147,44 @@ function updateRepoDisplay() {
             removeRepository(this.dataset.repo);
         });
     });
+
+    // Add event listeners to checkboxes
+    repoItems.querySelectorAll('.repo-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            toggleRepositorySelection(this.dataset.repo, this.checked);
+        });
+    });
+}
+
+function toggleRepositorySelection(repo, isSelected) {
+    if (isSelected) {
+        if (!selectedRepositories.includes(repo)) {
+            selectedRepositories.push(repo);
+        }
+    } else {
+        selectedRepositories = selectedRepositories.filter(r => r !== repo);
+    }
+    
+    // Refresh displays to show filtered data
+    if (repositories.length > 0 && token) {
+        refreshData();
+    }
+}
+
+function selectAllRepositories() {
+    selectedRepositories = [...repositories];
+    updateRepoDisplay();
+    if (repositories.length > 0 && token) {
+        refreshData();
+    }
+}
+
+function selectNoneRepositories() {
+    selectedRepositories = [];
+    updateRepoDisplay();
+    if (repositories.length > 0 && token) {
+        refreshData();
+    }
 }
 
 function saveSettings() {
@@ -123,6 +197,7 @@ function saveSettings() {
 
     // Save to localStorage
     localStorage.setItem('github-dashboard-repos', JSON.stringify(repositories));
+    localStorage.setItem('github-dashboard-selected-repos', JSON.stringify(selectedRepositories));
     localStorage.setItem('github-dashboard-token', token);
 
     // Restart refresh cycle
@@ -278,7 +353,20 @@ async function fetchWorkflowRuns() {
 function displayPullRequests(pullRequests) {
     prContainer.innerHTML = '';
 
-    pullRequests.forEach(pr => {
+    // Filter pull requests based on selected repositories
+    const filteredPRs = pullRequests.filter(pr => 
+        selectedRepositories.length === 0 || selectedRepositories.includes(pr.repository)
+    );
+
+    if (filteredPRs.length === 0) {
+        const message = selectedRepositories.length === 0 
+            ? '<div class="error">No repositories selected. Use the checkboxes above to select repositories to view.</div>'
+            : '<div class="error">No pull requests found for selected repositories.</div>';
+        prContainer.innerHTML = message;
+        return;
+    }
+
+    filteredPRs.forEach(pr => {
         const card = document.createElement('div');
         card.className = 'card';
 
@@ -294,8 +382,8 @@ function displayPullRequests(pullRequests) {
         const createdDate = new Date(pr.created_at);
         const dateString = createdDate.toLocaleDateString();
 
-        // Repository label (only show if multiple repos)
-        const repoLabel = repositories.length > 1 && pr.repository ? 
+        // Repository label (only show if multiple repos are selected)
+        const repoLabel = selectedRepositories.length > 1 && pr.repository ? 
             `<div class="card-repo">${escapeHtml(pr.repository)}</div>` : '';
 
         card.innerHTML = `
@@ -321,11 +409,24 @@ function displayPullRequests(pullRequests) {
 function displayWorkflowRuns(workflowRuns) {
     actionsContainer.innerHTML = '';
 
+    // Filter workflow runs based on selected repositories
+    const filteredRuns = workflowRuns.filter(run => 
+        selectedRepositories.length === 0 || selectedRepositories.includes(run.repository)
+    );
+
+    if (filteredRuns.length === 0) {
+        const message = selectedRepositories.length === 0 
+            ? '<div class="error">No repositories selected. Use the checkboxes above to select repositories to view.</div>'
+            : '<div class="error">No workflow runs found for selected repositories.</div>';
+        actionsContainer.innerHTML = message;
+        return;
+    }
+
     // Sort by most recent first
-    workflowRuns.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    filteredRuns.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // Only show the 10 most recent
-    const recentRuns = workflowRuns.slice(0, 10);
+    const recentRuns = filteredRuns.slice(0, 10);
 
     recentRuns.forEach(run => {
         const card = document.createElement('div');
@@ -353,8 +454,8 @@ function displayWorkflowRuns(workflowRuns) {
             ? `<a href="${run.pull_requests[0].url.replace('api.github.com/repos', 'github.com')}" target="_blank">PR #${run.pull_requests[0].number}</a>`
             : 'No linked PR';
 
-        // Repository label (only show if multiple repos)
-        const repoLabel = repositories.length > 1 && run.repository ? 
+        // Repository label (only show if multiple repos are selected)
+        const repoLabel = selectedRepositories.length > 1 && run.repository ? 
             `<div class="card-repo">${escapeHtml(run.repository)}</div>` : '';
 
         card.innerHTML = `
