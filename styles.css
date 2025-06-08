@@ -223,3 +223,84 @@ button:hover {
 .notification.show {
     transform: translateY(0);
 }
+
+/* Multi-repo styles */
+.repo-input-group {
+    display: flex;
+    gap: 5px;
+}
+
+.repo-input-group input {
+    flex: 1;
+}
+
+.repo-input-group button {
+    padding: 8px 12px;
+    white-space: nowrap;
+}
+
+.repo-list {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.repo-list h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: var(--primary-color);
+}
+
+.repo-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.repo-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background-color: var(--light-gray);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.repo-item .repo-name {
+    font-weight: 500;
+}
+
+.repo-item .remove-repo {
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.repo-item .remove-repo:hover {
+    background-color: var(--red);
+    color: white;
+    border-radius: 50%;
+}
+
+.no-repos {
+    color: var(--gray);
+    font-style: italic;
+}
+
+.card-repo {
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 3px;
+}

@@ -3,14 +3,17 @@ const REFRESH_INTERVAL = 15000; // 15 seconds
 
 // State variables
 let refreshIntervalId = null;
-let repository = '';
+let repositories = []; // Changed from single repository to array
 let token = '';
 
 // DOM Elements
 const repoInput = document.getElementById('repo-input');
+const addRepoBtn = document.getElementById('add-repo');
 const tokenInput = document.getElementById('token-input');
 const saveSettingsBtn = document.getElementById('save-settings');
 const refreshNowBtn = document.getElementById('refresh-now');
+const repoList = document.getElementById('repo-list');
+const repoItems = document.getElementById('repo-items');
 const prContainer = document.getElementById('pr-container');
 const actionsContainer = document.getElementById('actions-container');
 const lastRefreshEl = document.getElementById('last-refresh');
@@ -19,43 +22,107 @@ const notificationEl = document.getElementById('notification');
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', initialize);
+addRepoBtn.addEventListener('click', addRepository);
+repoInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        addRepository();
+    }
+});
 saveSettingsBtn.addEventListener('click', saveSettings);
 refreshNowBtn.addEventListener('click', refreshData);
 
 // Functions
 function initialize() {
     // Load settings from localStorage if available
-    const savedRepo = localStorage.getItem('github-dashboard-repo');
+    const savedRepos = localStorage.getItem('github-dashboard-repos');
     const savedToken = localStorage.getItem('github-dashboard-token');
 
-    if (savedRepo) repoInput.value = savedRepo;
+    if (savedRepos) {
+        try {
+            repositories = JSON.parse(savedRepos);
+        } catch (e) {
+            // Handle legacy single repo format
+            const legacyRepo = localStorage.getItem('github-dashboard-repo');
+            if (legacyRepo) {
+                repositories = [legacyRepo];
+            }
+        }
+    }
+    
     if (savedToken) tokenInput.value = savedToken;
 
-    if (savedRepo && savedToken) {
-        repository = savedRepo;
+    updateRepoDisplay();
+
+    if (repositories.length > 0 && savedToken) {
         token = savedToken;
         startAutoRefresh();
         refreshData();
     }
 }
 
-function saveSettings() {
-    repository = repoInput.value.trim();
-    token = tokenInput.value.trim();
-
-    if (!repository || !token) {
-        showNotification('Please enter both repository and token', 'error');
+function addRepository() {
+    const repo = repoInput.value.trim();
+    
+    if (!repo) {
+        showNotification('Please enter a repository name', 'error');
         return;
     }
 
     // Validate repository format
-    if (!repository.includes('/')) {
+    if (!repo.includes('/')) {
         showNotification('Repository should be in format "owner/repo"', 'error');
         return;
     }
 
+    // Check if repository already exists
+    if (repositories.includes(repo)) {
+        showNotification('Repository already added', 'error');
+        return;
+    }
+
+    repositories.push(repo);
+    repoInput.value = '';
+    updateRepoDisplay();
+    showNotification('Repository added!', 'success');
+}
+
+function removeRepository(repo) {
+    repositories = repositories.filter(r => r !== repo);
+    updateRepoDisplay();
+    showNotification('Repository removed!', 'success');
+}
+
+function updateRepoDisplay() {
+    if (repositories.length === 0) {
+        repoItems.innerHTML = '<div class="no-repos">No repositories added yet.</div>';
+        return;
+    }
+
+    repoItems.innerHTML = repositories.map(repo => `
+        <div class="repo-item">
+            <span class="repo-name">${escapeHtml(repo)}</span>
+            <button type="button" class="remove-repo" data-repo="${escapeHtml(repo)}" title="Remove repository">×</button>
+        </div>
+    `).join('');
+    
+    // Add event listeners to remove buttons
+    repoItems.querySelectorAll('.remove-repo').forEach(btn => {
+        btn.addEventListener('click', function() {
+            removeRepository(this.dataset.repo);
+        });
+    });
+}
+
+function saveSettings() {
+    token = tokenInput.value.trim();
+
+    if (repositories.length === 0 || !token) {
+        showNotification('Please add at least one repository and enter a token', 'error');
+        return;
+    }
+
     // Save to localStorage
-    localStorage.setItem('github-dashboard-repo', repository);
+    localStorage.setItem('github-dashboard-repos', JSON.stringify(repositories));
     localStorage.setItem('github-dashboard-token', token);
 
     // Restart refresh cycle
@@ -84,8 +151,8 @@ function stopAutoRefresh() {
 }
 
 async function refreshData() {
-    if (!repository || !token) {
-        showNotification('Please configure repository and token first', 'error');
+    if (repositories.length === 0 || !token) {
+        showNotification('Please configure repositories and token first', 'error');
         return;
     }
 
@@ -93,8 +160,8 @@ async function refreshData() {
 
     try {
         await Promise.all([
-            fetchPullRequests(),
-            fetchWorkflowRuns()
+            fetchAllPullRequests(),
+            fetchAllWorkflowRuns()
         ]);
     } catch (error) {
         console.error('Error refreshing data:', error);
@@ -108,63 +175,104 @@ function updateLastRefreshTime() {
     lastRefreshEl.textContent = `Last refreshed: ${timeString}`;
 }
 
-async function fetchPullRequests() {
+async function fetchAllPullRequests() {
     prContainer.innerHTML = '<div class="loading">Loading pull requests...</div>';
 
     try {
-        const response = await fetch(`https://api.github.com/repos/${repository}/pulls`, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
+        const allPullRequests = [];
+        
+        for (const repo of repositories) {
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    console.error(`Failed to fetch PRs for ${repo}: ${response.status}`);
+                    continue;
+                }
+
+                const pullRequests = await response.json();
+                // Add repository info to each PR
+                pullRequests.forEach(pr => {
+                    pr.repository = repo;
+                });
+                allPullRequests.push(...pullRequests);
+            } catch (error) {
+                console.error(`Error fetching PRs for ${repo}:`, error);
+            }
         }
 
-        const pullRequests = await response.json();
-
-        if (pullRequests.length === 0) {
+        if (allPullRequests.length === 0) {
             prContainer.innerHTML = '<div class="error">No pull requests found.</div>';
             return;
         }
 
-        displayPullRequests(pullRequests);
+        // Sort by creation date, newest first
+        allPullRequests.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        displayPullRequests(allPullRequests);
     } catch (error) {
         console.error('Error fetching pull requests:', error);
         prContainer.innerHTML = `<div class="error">Error loading pull requests: ${error.message}</div>`;
     }
 }
 
-async function fetchWorkflowRuns() {
+async function fetchAllWorkflowRuns() {
     actionsContainer.innerHTML = '<div class="loading">Loading workflow runs...</div>';
 
     try {
-        const response = await fetch(`https://api.github.com/repos/${repository}/actions/runs`, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
+        const allWorkflowRuns = [];
+        
+        for (const repo of repositories) {
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repo}/actions/runs`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    console.error(`Failed to fetch workflow runs for ${repo}: ${response.status}`);
+                    continue;
+                }
+
+                const data = await response.json();
+                const workflowRuns = data.workflow_runs || [];
+                // Add repository info to each workflow run
+                workflowRuns.forEach(run => {
+                    run.repository = repo;
+                });
+                allWorkflowRuns.push(...workflowRuns);
+            } catch (error) {
+                console.error(`Error fetching workflow runs for ${repo}:`, error);
+            }
         }
 
-        const data = await response.json();
-        const workflowRuns = data.workflow_runs || [];
-
-        if (workflowRuns.length === 0) {
+        if (allWorkflowRuns.length === 0) {
             actionsContainer.innerHTML = '<div class="error">No workflow runs found.</div>';
             return;
         }
 
-        displayWorkflowRuns(workflowRuns);
+        displayWorkflowRuns(allWorkflowRuns);
     } catch (error) {
         console.error('Error fetching workflow runs:', error);
         actionsContainer.innerHTML = `<div class="error">Error loading workflow runs: ${error.message}</div>`;
     }
+}
+
+// Keep legacy functions for backward compatibility, but they now work with the first repository
+async function fetchPullRequests() {
+    if (repositories.length === 0) return;
+    return fetchAllPullRequests();
+}
+
+async function fetchWorkflowRuns() {
+    if (repositories.length === 0) return;
+    return fetchAllWorkflowRuns();
 }
 
 function displayPullRequests(pullRequests) {
@@ -186,7 +294,12 @@ function displayPullRequests(pullRequests) {
         const createdDate = new Date(pr.created_at);
         const dateString = createdDate.toLocaleDateString();
 
+        // Repository label (only show if multiple repos)
+        const repoLabel = repositories.length > 1 && pr.repository ? 
+            `<div class="card-repo">${escapeHtml(pr.repository)}</div>` : '';
+
         card.innerHTML = `
+            ${repoLabel}
             <div class="card-header">
                 <div class="card-title">
                     <a href="${pr.html_url}" target="_blank">#${pr.number}: ${escapeHtml(pr.title)}</a>
@@ -240,7 +353,12 @@ function displayWorkflowRuns(workflowRuns) {
             ? `<a href="${run.pull_requests[0].url.replace('api.github.com/repos', 'github.com')}" target="_blank">PR #${run.pull_requests[0].number}</a>`
             : 'No linked PR';
 
+        // Repository label (only show if multiple repos)
+        const repoLabel = repositories.length > 1 && run.repository ? 
+            `<div class="card-repo">${escapeHtml(run.repository)}</div>` : '';
+
         card.innerHTML = `
+            ${repoLabel}
             <div class="card-header">
                 <div class="card-title">
                     <a href="${run.html_url}" target="_blank">${escapeHtml(run.name || run.workflow_id)}</a>
