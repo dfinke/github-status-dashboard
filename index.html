@@ -14,8 +14,11 @@
             <h1>GitHub PR & Action Status Dashboard</h1>
             <div class="controls">
                 <div class="form-group">
-                    <label for="repo-input">Repository (owner/repo):</label>
-                    <input type="text" id="repo-input" placeholder="e.g., octocat/Hello-World">
+                    <label for="repo-input">Add Repository (owner/repo):</label>
+                    <div class="repo-input-group">
+                        <input type="text" id="repo-input" placeholder="e.g., octocat/Hello-World">
+                        <button type="button" id="add-repo">Add</button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="token-input">GitHub Token:</label>
@@ -23,6 +26,12 @@
                 </div>
                 <button id="save-settings">Save Settings</button>
                 <button id="refresh-now">Refresh Now</button>
+            </div>
+            <div class="repo-list" id="repo-list">
+                <h3>Repositories:</h3>
+                <div id="repo-items" class="repo-items">
+                    <div class="no-repos">No repositories added yet.</div>
+                </div>
             </div>
         </div>
 
