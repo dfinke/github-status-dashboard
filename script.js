@@ -101,9 +101,16 @@ function updateRepoDisplay() {
     repoItems.innerHTML = repositories.map(repo => `
         <div class="repo-item">
             <span class="repo-name">${escapeHtml(repo)}</span>
-            <button type="button" class="remove-repo" onclick="removeRepository('${escapeHtml(repo)}')" title="Remove repository">×</button>
+            <button type="button" class="remove-repo" data-repo="${escapeHtml(repo)}" title="Remove repository">×</button>
         </div>
     `).join('');
+    
+    // Add event listeners to remove buttons
+    repoItems.querySelectorAll('.remove-repo').forEach(btn => {
+        btn.addEventListener('click', function() {
+            removeRepository(this.dataset.repo);
+        });
+    });
 }
 
 function saveSettings() {
